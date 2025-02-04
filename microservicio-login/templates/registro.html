@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Formulario de Registro</title>
+    <style>
+        /* Tus estilos CSS aquí */
+    </style>
+</head>
+<body>
+    <div class="modal">
+        <div class="modal-header">
+            <h2 class="modal-title">Formulario de Registro</h2>
+            <button class="close-button">&times;</button>
+        </div>
+        <form id="registerForm" action="/register" method="POST">
+            <div class="modal-body">
+                <div class="input-group">
+                    <label class="input-label" for="username">Nombre de usuario</label>
+                    <input type="text" id="username" name="username" class="input-field" placeholder="Ingrese su nombre de usuario">
+                </div>
+
+                <div class="input-group">
+                    <label class="input-label" for="password">Contraseña</label>
+                    <input type="password" id="password" name="password" class="input-field" placeholder="Ingrese su contraseña">
+                </div>
+
+                <div class="input-group">
+                    <label class="input-label" for="email">Correo electrónico</label>
+                    <input type="email" id="email" name="email" class="input-field" placeholder="Ingrese su correo electrónico">
+                </div>
+
+                <div class="input-group">
+                    <label class="input-label" for="role">Rol</label>
+                    <select id="role" name="role" class="input-field">
+                        <option value="cliente">Cliente</option>
+                        <option value="admin">Administrador</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="button button-secondary">Cancelar</button>
+                <button type="submit" class="button button-primary">Registrarse</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        document.getElementById('registerForm').addEventListener('submit', function(event) {
+            event.preventDefault(); // Evita que el formulario se envíe de la manera tradicional
+
+            const formData = new FormData(this);
+
+            fetch(this.action, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(Object.fromEntries(formData))
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error); // Muestra un mensaje de error si hay alguno
+                } else {
+                    // Redirige a la página de verificación
+                    window.location.href = '/verify';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Hubo un error al registrar el usuario');
+            });
+        });
+    </script>
+</body>
+</html>

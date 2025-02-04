@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verificación de Correo Electrónico</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            width: 300px;
+            text-align: center;
+        }
+        h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #28a745;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        .message {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #333;
+        }
+        .error {
+            color: #dc3545;
+        }
+        .success {
+            color: #28a745;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Verificación de Correo Electrónico</h1>
+        <p>Por favor, pega el token de verificación que recibiste en tu correo electrónico:</p>
+        <input type="text" id="token" placeholder="Pega tu token aquí">
+        <button onclick="verifyToken()">Verificar</button>
+        <div id="message" class="message"></div>
+    </div>
+
+    <script>
+        async function verifyToken() {
+            const token = document.getElementById('token').value;
+            const messageDiv = document.getElementById('message');
+
+            if (!token) {
+                messageDiv.innerHTML = '<p class="error">Por favor, ingresa el token.</p>';
+                return;
+            }
+
+            try {
+                const response = await fetch('/verify', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ token: token })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    messageDiv.innerHTML = `<p class="success">${data.message}</p>`;
+                } else {
+                    messageDiv.innerHTML = `<p class="error">${data.error}</p>`;
+                }
+            } catch (error) {
+                messageDiv.innerHTML = `<p class="error">Error al conectar con el servidor.</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

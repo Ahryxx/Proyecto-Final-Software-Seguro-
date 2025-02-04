@@ -4,9 +4,16 @@ import datetime
 import secrets
 import smtplib
 from functools import wraps
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 import psycopg2
 from psycopg2.extras import RealDictCursor
+import requests
+
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives import padding, hashes
+from cryptography.hazmat.backends import default_backend
+import os
+import base64
 
 app = Flask(__name__)
 
@@ -103,8 +110,105 @@ def send_email(to_email, subject, body):
         print(f"Error enviando correo: {e}")
         return False
 
-@app.route('/register', methods=['POST'])
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'GET':
+        # Renderizar la plantilla de inicio de sesión
+        return render_template('login.html')
+
+    # Si es una solicitud POST, procesar el inicio de sesión
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+
+    if not username or not password:
+        return jsonify({"error": "Credenciales requeridas"}), 400
+
+    try:
+        # Conectar a la base de datos principal
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        # Buscar al usuario en la base de datos
+        cur.execute("SELECT * FROM login WHERE username = %s", (username,))
+        user = cur.fetchone()
+
+        # Verificar si el usuario existe y si la contraseña es correcta
+        if not user or not bcrypt.checkpw(password.encode('utf-8'), user['password_hash'].encode('utf-8')):
+            # Registrar el intento fallido en la base de datos de auditoría
+            audit_conn = get_audit_db_connection()
+            audit_cur = audit_conn.cursor()
+            audit_cur.execute(
+                "INSERT INTO audit_logs (user_id, action, details) VALUES (%s, %s, %s)",
+                (None, 'login_fallido', f"Intento fallido para: {username}")
+            )
+            audit_conn.commit()
+            audit_cur.close()
+            audit_conn.close()
+
+            # Devolver un error si las credenciales son inválidas
+            return jsonify({"error": "Credenciales inválidas"}), 401
+
+        # Verificar si el correo electrónico del usuario está verificado
+        if not user['verified']:
+            return jsonify({"error": "Por favor, verifica tu correo electrónico antes de iniciar sesión"}), 401
+
+        # Generar un token JWT para el usuario
+        token = jwt.encode({
+            'username': user['username'],
+            'role': user['role'],
+            'exp': datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)  # Token expira en 1 hora
+        }, SECRET_KEY, algorithm='HS256')
+
+        print("Token generado:", token)  # Log para depuración
+
+        # Registrar el inicio de sesión exitoso en la base de datos de auditoría
+        audit_conn = get_audit_db_connection()
+        audit_cur = audit_conn.cursor()
+        audit_cur.execute(
+            "INSERT INTO audit_logs (user_id, action, details) VALUES (%s, %s, %s)",
+            (user['id'], 'login_exitoso', f"Login desde IP: {request.remote_addr}")
+        )
+        audit_conn.commit()
+
+        # Cerrar conexiones a las bases de datos
+        audit_cur.close()
+        audit_conn.close()
+        cur.close()
+        conn.close()
+
+        # Devolver el token y el ID del usuario en la respuesta
+        return jsonify({'token': token, 'user_id': user['id']}), 200
+
+    except Exception as e:
+        # Manejar cualquier error que ocurra durante el proceso
+        return jsonify({"error": str(e)}), 500
+    
+
+# Función para generar una clave única usando el user_id del usuario
+def generar_clave(user_id):
+    digest = hashes.Hash(hashes.SHA256(), backend=default_backend())
+    digest.update(str(user_id).encode('utf-8'))
+    clave = digest.finalize()
+    return clave
+
+# Función para encriptar datos
+def encriptar(datos, clave):
+    iv = os.urandom(16)
+    cifrador = Cipher(algorithms.AES(clave), modes.GCM(iv), backend=default_backend()).encryptor()
+    padder = padding.PKCS7(algorithms.AES.block_size).padder()
+    datos_padded = padder.update(datos.encode('utf-8')) + padder.finalize()
+    datos_encriptados = cifrador.update(datos_padded) + cifrador.finalize()
+    resultado = base64.b64encode(iv + cifrador.tag + datos_encriptados).decode('utf-8')
+    return resultado
+
+# Modificar el endpoint /register para encriptar los datos antes de almacenarlos
+@app.route('/register', methods=['GET', 'POST'])
 def register():
+    if request.method == 'GET':
+        return render_template('registro.html')
+
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')
@@ -116,7 +220,7 @@ def register():
 
     try:
         # Generar el hash de la contraseña
-        hashed_pw = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')  # Decodificar a str
+        hashed_pw = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
         # Conexión a la base de datos principal
         conn = get_db_connection()
@@ -127,12 +231,26 @@ def register():
         if cur.fetchone():
             return jsonify({"error": "El nombre de usuario ya existe"}), 400
 
-        # Insertar el nuevo usuario con estado no verificado
+        # Insertar el nuevo usuario en la tabla login
         cur.execute(
             "INSERT INTO login (username, password_hash, email, role, verified) VALUES (%s, %s, %s, %s, %s) RETURNING id",
             (username, hashed_pw, email, role, False)
         )
         user_id = cur.fetchone()[0]
+        conn.commit()
+
+        # Generar la clave única para el usuario
+        clave = generar_clave(user_id)
+
+        # Encriptar los datos sensibles
+        nombre_encriptado = encriptar(username, clave)
+        correo_encriptado = encriptar(email, clave)
+
+        # Insertar en la tabla usuarios con los datos encriptados
+        cur.execute(
+            "INSERT INTO usuarios (user_id, nombre, correo) VALUES (%s, %s, %s)",
+            (user_id, nombre_encriptado, correo_encriptado)
+        )
         conn.commit()
 
         # Generar token de verificación
@@ -164,124 +282,68 @@ def register():
         cur.close()
         conn.close()
 
-        return jsonify({"message": "Usuario registrado exitosamente. Por favor, verifica tu correo electrónico."}), 201
+        # Devolver una respuesta exitosa
+        return jsonify({"message": "Registro exitoso. Por favor, verifica tu correo electrónico."}), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# Ruta para validar el token de verificación
-@app.route('/verify', methods=['POST'])
+    
+@app.route('/verify', methods=['GET', 'POST'])
 def verify_email():
-    data = request.get_json()
-    token = data.get('token')
+    if request.method == 'GET':
+        # Si es una solicitud GET, renderizamos la plantilla de verificación.
+        return render_template('verify.html')
+    
+    elif request.method == 'POST':
+        # Procesamos la verificación del token enviado en el cuerpo de la solicitud (JSON).
+        data = request.get_json()
+        token = data.get('token')
 
-    if not token:
-        return jsonify({"error": "Token de verificación requerido"}), 400
+        if not token:
+            return jsonify({"error": "Token de verificación requerido"}), 400
 
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
+        try:
+            conn = get_db_connection()
+            cur = conn.cursor()
 
-        # Buscar el token en la base de datos
-        cur.execute("SELECT user_id FROM verification_tokens WHERE token = %s", (token,))
-        result = cur.fetchone()
+            # Buscar el token en la base de datos
+            cur.execute("SELECT user_id FROM verification_tokens WHERE token = %s", (token,))
+            result = cur.fetchone()
 
-        if not result:
-            return jsonify({"error": "Token inválido"}), 400
+            if not result:
+                return jsonify({"error": "Token inválido"}), 400
 
-        user_id = result[0]
+            user_id = result[0]
 
-        # Marcar al usuario como verificado
-        cur.execute("UPDATE login SET verified = TRUE WHERE id = %s", (user_id,))
-        conn.commit()
+            # Marcar al usuario como verificado
+            cur.execute("UPDATE login SET verified = TRUE WHERE id = %s", (user_id,))
+            conn.commit()
 
-        # Eliminar el token de verificación
-        cur.execute("DELETE FROM verification_tokens WHERE token = %s", (token,))
-        conn.commit()
+            # Eliminar el token de verificación
+            cur.execute("DELETE FROM verification_tokens WHERE token = %s", (token,))
+            conn.commit()
 
-        # Registrar la acción en la base de datos de auditoría
-        audit_conn = get_audit_db_connection()
-        audit_cur = audit_conn.cursor()
-        audit_cur.execute(
-            "INSERT INTO audit_logs (user_id, action, details) VALUES (%s, %s, %s)",
-            (user_id, 'verificacion', 'Correo electrónico verificado')
-        )
-        audit_conn.commit()
-
-        # Cerrar conexiones
-        audit_cur.close()
-        audit_conn.close()
-        cur.close()
-        conn.close()
-
-        return jsonify({"message": "Correo electrónico verificado exitosamente"}), 200
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-# Login de usuario
-@app.route('/login', methods=['POST'])
-def login():
-    data = request.get_json()
-    username = data.get('username')
-    password = data.get('password')
-
-    if not username or not password:
-        return jsonify({"error": "Credenciales requeridas"}), 400
-
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute("SELECT * FROM login WHERE username = %s", (username,))
-        user = cur.fetchone()
-        
-        # Verificar credenciales
-        if not user or not bcrypt.checkpw(password.encode('utf-8'), user['password_hash'].encode('utf-8')):
-            # Auditoría de intento fallido
+            # Registrar la acción en la base de datos de auditoría
             audit_conn = get_audit_db_connection()
             audit_cur = audit_conn.cursor()
             audit_cur.execute(
                 "INSERT INTO audit_logs (user_id, action, details) VALUES (%s, %s, %s)",
-                (None, 'login_fallido', f"Intento fallido para: {username}")
+                (user_id, 'verificacion', 'Correo electrónico verificado')
             )
             audit_conn.commit()
+
+            # Cerrar conexiones
             audit_cur.close()
             audit_conn.close()
-            
-            return jsonify({"error": "Credenciales inválidas"}), 401
+            cur.close()
+            conn.close()
 
-        # Verificar si el correo electrónico está verificado
-        if not user['verified']:
-            return jsonify({"error": "Por favor, verifica tu correo electrónico antes de iniciar sesión"}), 401
+            return jsonify({"message": "Correo electrónico verificado exitosamente"}), 200
 
-        # Generar JWT
-        token = jwt.encode({
-            'username': user['username'],
-            'role': user['role'],
-            'exp': datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=1)
-        }, SECRET_KEY, algorithm='HS256')
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
 
-        print("Token generado:", token)
-
-        # Auditoría de login exitoso
-        audit_conn = get_audit_db_connection()
-        audit_cur = audit_conn.cursor()
-        audit_cur.execute(
-            "INSERT INTO audit_logs (user_id, action, details) VALUES (%s, %s, %s)",
-            (user['id'], 'login_exitoso', f"Login desde IP: {request.remote_addr}")
-        )
-        audit_conn.commit()
-        
-        # Cerrar conexiones
-        audit_cur.close()
-        audit_conn.close()
-        cur.close()
-        conn.close()
-        
-        return jsonify({'token': token}), 200
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 
 # Ruta protegida para admin
 @app.route('/admin', methods=['GET'])
@@ -290,10 +352,50 @@ def admin_dashboard():
     return jsonify({"message": "Panel de Administrador"}), 200
 
 # Ruta protegida para cliente
-@app.route('/cliente', methods=['GET'])
+@app.route('/cliente/info', methods=['GET'])
 @requires_role('cliente')
-def cliente_dashboard():
-    return jsonify({"message": "Panel de Cliente"}), 200
+def get_cliente_info():
+    token = request.headers.get('Authorization')
+    if not token:
+        return jsonify({"error": "Token no proporcionado"}), 401
+
+    try:
+        # Extraer el token sin "Bearer "
+        token = token.split(" ")[1]
+
+        # Decodificar el token para obtener el nombre de usuario
+        payload = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+        username = payload.get('username')
+
+        # Obtener el ID del cliente desde la base de datos principal
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT id FROM login WHERE username = %s", (username,))
+        user = cur.fetchone()
+        cur.close()
+        conn.close()
+
+        if not user:
+            return jsonify({"error": "Usuario no encontrado"}), 404
+
+        user_id = user['id']
+
+        # Hacer una solicitud a la segunda API para obtener la información del cliente
+        segunda_api_url = f"http://localhost:5001/usuarios/{user_id}"  # Cambia el puerto si es necesario
+        response = requests.get(segunda_api_url)
+
+        if response.status_code != 200:
+            return jsonify({"error": "Error al obtener la información del cliente"}), response.status_code
+
+        # Retornar la información del cliente
+        return jsonify(response.json()), 200
+
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Token expirado"}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Token inválido"}), 401
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, port=5000)  # Cambia el puerto si es necesario
