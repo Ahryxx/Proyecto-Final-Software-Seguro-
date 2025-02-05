@@ -1,6 +1,6 @@
 from flask import Flask, jsonify, request,render_template
 import psycopg2
-from config import DB_HOST, DB_NAME, DB_USER, DB_PASSWORD, DB_PORT
+from config import SECRET_KEY,DBCONNECT,DBCONNECTAUDIT
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import padding
 from cryptography.hazmat.backends import default_backend
@@ -19,7 +19,7 @@ app = Flask(__name__)
 def get_db_connection():
     try:
         conn = psycopg2.connect(
-            "postgresql://postgres:npg_H9UzaGen3Zfg@ep-dark-resonance-a2kztjpx-pooler.eu-central-1.aws.neon.tech/secure?sslmode=require"
+            DBCONNECT
         )
         print("Conexión a la base de datos establecida correctamente.")
         return conn
@@ -30,7 +30,7 @@ def get_db_connection():
 def get_audit_db_connection():
     try:
         conn = psycopg2.connect(
-            "postgresql://postgres:npg_H9UzaGen3Zfg@ep-dark-resonance-a2kztjpx-pooler.eu-central-1.aws.neon.tech/auditoria?sslmode=require"
+            DBCONNECTAUDIT
         )
         print("Conexión a la base de datos de auditoría establecida correctamente.")
         return conn

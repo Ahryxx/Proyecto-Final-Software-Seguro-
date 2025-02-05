@@ -69,32 +69,27 @@
     const password = document.getElementById('password').value;
 
     fetch('/login', {
-    method: 'POST',
-    headers: {
-        'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ username, password })
-})
-.then(response => response.json())
-.then(data => {
-    if (data.error) {
-        document.getElementById('errorMessage').textContent = data.error;
-    } else {
-        // Construcción de la cadena de la cookie sin SameSite
-        document.cookie = `authToken=${data.token}; path=/; SameSite=None; Secure; domain=localhost`;
-
-
-
-        document.cookie = cookieString;
-
-        if (data.redirect_url) {
-            window.location.href = 'http://localhost:5001/usuarios/resumen';
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ username, password })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            document.getElementById('errorMessage').textContent = data.error;
         } else {
-            window.location.href = `http://localhost:5001/perfil/${data.user_id}`;
-        }
-    }
-})
+            // Construcción de la cadena de la cookie sin SameSite
+            document.cookie = `authToken=${data.token}; path=/; SameSite=None; Secure; domain=localhost`;
 
+            if (data.redirect_url) {
+                window.location.href = 'http://localhost:5001/usuarios/resumen';
+            } else {
+                window.location.href = `http://localhost:5001/perfil/${data.user_id}`;
+            }
+        }
+    })
     .catch(error => {
         console.error('Error:', error);
         document.getElementById('errorMessage').textContent = 'Hubo un error al iniciar sesión';

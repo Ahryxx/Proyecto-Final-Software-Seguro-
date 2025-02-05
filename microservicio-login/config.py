@@ -1,7 +1,10 @@
 # config.py
 
-DB_HOST = "localhost"          # Servidor de la base de datos
-DB_NAME = "secure"             # Nombre de la base de datos
-DB_USER = "postgres"           # Usuario de PostgreSQL
-DB_PASSWORD = "#Nowherefast1"  # Contraseña del usuario
-DB_PORT = "5432"               # Puerto de PostgreSQL (por defecto es 5432)
+SECRET_KEY = '7Gj9@b2M'  # Debería ser más seguro en producción
+
+
+# Configuración del servidor de correo
+SMTP_SERVER = 'smtp.gmail.com'
+SMTP_PORT = 587
+EMAIL_ADDRESS = 'josegabrielfuertes@gmail.com'
+EMAIL_PASSWORD = 'sbhs dpmt xulh wytc'

@@ -1,7 +1,4 @@
 # config.py
-
-DB_HOST = "localhost"          # Cambia si tu base está en otro servidor
-DB_NAME = "secure"             # Nombre de la base de datos
-DB_USER = "postgres"           # Usuario de PostgreSQL
-DB_PASSWORD = "#Nowherefast1"  # Contraseña del usuario
-DB_PORT = "5432"               # Puerto de PostgreSQL (por defecto es 5432)
+SECRET_KEY = '7Gj9@b2M'  # Debe ser la misma que en la primera API
+DBCONNECT="postgresql://postgres:npg_H9UzaGen3Zfg@ep-dark-resonance-a2kztjpx-pooler.eu-central-1.aws.neon.tech/secure?sslmode=require"
+DBCONNECTAUDIT="postgresql://postgres:npg_H9UzaGen3Zfg@ep-dark-resonance-a2kztjpx-pooler.eu-central-1.aws.neon.tech/auditoria?sslmode=require"

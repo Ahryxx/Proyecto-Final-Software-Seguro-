@@ -8,7 +8,7 @@ from flask import Flask, request, jsonify, render_template
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import requests
-
+from config import SECRET_KEY,SMTP_PORT,SMTP_SERVER,EMAIL_ADDRESS,EMAIL_PASSWORD
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import padding, hashes
 from cryptography.hazmat.backends import default_backend
@@ -18,19 +18,6 @@ import base64
 
 app = Flask(__name__)
 
-SECRET_KEY = '7Gj9@b2M'  # Debería ser más seguro en producción
-DB_HOST = 'localhost'
-DB_NAME = 'secure'
-DB_USER = 'postgres'
-DB_PASSWORD = '#Nowherefast1'
-DB_PORT = '5432'
-AUDIT_DB_NAME = 'auditoria'
-
-# Configuración del servidor de correo
-SMTP_SERVER = 'smtp.gmail.com'
-SMTP_PORT = 587
-EMAIL_ADDRESS = 'josegabrielfuertes@gmail.com'
-EMAIL_PASSWORD = 'sbhs dpmt xulh wytc'
 
 # Conexión a la base de datos principal (usuarios)
 def get_db_connection():
