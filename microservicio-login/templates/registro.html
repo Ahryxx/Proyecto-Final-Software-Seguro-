@@ -4,14 +4,98 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Formulario de Registro</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
     <style>
-        /* Tus estilos CSS aquí */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .modal {
+            background-color: #fff;
+            border-radius: 15px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            width: 400px;
+            overflow: hidden;
+        }
+        .modal-header {
+            background-color: #333;
+            color: #fff;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal-title {
+            margin: 0;
+            font-size: 1.5rem;
+        }
+        .close-button {
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+        .modal-body {
+            padding: 20px;
+        }
+        .modal-footer {
+            padding: 20px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
+        .input-label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+            font-weight: bold;
+        }
+        .input-field {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        .button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        .button-primary {
+            background-color: #333;
+            color: #fff;
+        }
+        .button-primary:hover {
+            background-color: #555;
+        }
+        .button-secondary {
+            background-color: #f8f9fa;
+            color: #333;
+            border: 1px solid #ddd;
+        }
+        .button-secondary:hover {
+            background-color: #e9ecef;
+        }
     </style>
 </head>
 <body>
     <div class="modal">
         <div class="modal-header">
-            <h2 class="modal-title">Formulario de Registro</h2>
+            <h2 class="modal-title"><i class="fas fa-user-plus"></i> Formulario de Registro</h2>
             <button class="close-button">&times;</button>
         </div>
         <form id="registerForm" action="/register" method="POST">
@@ -30,14 +114,6 @@
                     <label class="input-label" for="email">Correo electrónico</label>
                     <input type="email" id="email" name="email" class="input-field" placeholder="Ingrese su correo electrónico">
                 </div>
-
-                <div class="input-group">
-                    <label class="input-label" for="role">Rol</label>
-                    <select id="role" name="role" class="input-field">
-                        <option value="cliente">Cliente</option>
-                        <option value="admin">Administrador</option>
-                    </select>
-                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="button button-secondary">Cancelar</button>
@@ -49,9 +125,26 @@
     <script>
         document.getElementById('registerForm').addEventListener('submit', function(event) {
             event.preventDefault(); // Evita que el formulario se envíe de la manera tradicional
-
+    
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            // Validación de correo electrónico
+            const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+            if (!emailRegex.test(email)) {
+                alert('Por favor, ingrese un correo electrónico válido.');
+                return;
+            }
+    
+            // Validación de la contraseña: al menos una mayúscula, un número y 8 caracteres
+            const passwordRegex = /^(?=.*[A-Z])(?=.*\d).{8,}$/;
+            if (!passwordRegex.test(password)) {
+                alert('La contraseña debe tener al menos una letra mayúscula, un número y 8 caracteres.');
+                return;
+            }
+    
             const formData = new FormData(this);
-
+    
             fetch(this.action, {
                 method: 'POST',
                 headers: {
@@ -74,5 +167,6 @@
             });
         });
     </script>
+    
 </body>
 </html>

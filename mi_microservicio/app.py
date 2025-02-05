@@ -131,134 +131,194 @@ def desencriptar(datos_encriptados, clave):
     except Exception as e:
         print(f"Error al desencriptar: {e}")
         return None
-    
-@app.route('/usuarios/<int:user_id>', methods=['PUT'])
-def actualizar_usuario(user_id):
-    data = request.get_json()
-    
-    nombre = data.get('nombre')
-    correo = data.get('correo')
-    ci = data.get('ci')
-    numero_telefono = data.get('numero_telefono')
-    direccion = data.get('direccion')
-    fecha_expiracion = data.get('fecha_expiracion')
-    
+
+
+@app.route('/api/usuarios/<int:user_id>/datos', methods=['GET'])
+@requires_role('admin')
+def obtener_datos_usuario(user_id):
     conn = get_db_connection()
     if conn is None:
         return jsonify({"error": "No se pudo conectar a la base de datos"}), 500
 
     try:
         cur = conn.cursor()
-        
-        cur.execute("SELECT user_id FROM usuarios WHERE user_id = %s;", (user_id,))
-        if cur.fetchone() is None:
-            cur.close()
-            conn.close()
+        cur.execute("""
+            SELECT nombre, ci, numero_telefono, correo, direccion 
+            FROM usuarios 
+            WHERE user_id = %s;
+        """, (user_id,))
+        usuario = cur.fetchone()
+        cur.close()
+        conn.close()
+
+        if usuario is None:
             return jsonify({"error": "Usuario no encontrado"}), 404
 
         clave = generar_clave(user_id)
 
-        cur.execute("""
-            SELECT nombre, correo, ci, numero_telefono, direccion, fecha_expiracion 
-            FROM usuarios 
-            WHERE user_id = %s;
-        """, (user_id,))
-        usuario_actual = cur.fetchone()
-
-        usuario_actual_dict = {
-            "nombre": desencriptar(usuario_actual[0], clave),
-            "correo": desencriptar(usuario_actual[1], clave),
-            "ci": desencriptar(usuario_actual[2], clave),
-            "numero_telefono": desencriptar(usuario_actual[3], clave),
-            "direccion": desencriptar(usuario_actual[4], clave),
-            "fecha_expiracion": usuario_actual[5].strftime('%Y-%m-%d') if usuario_actual[5] else None
+        datos_usuario = {
+            "nombre": desencriptar(usuario[0], clave),
+            "ci": desencriptar(usuario[1], clave),
+            "numero_telefono": desencriptar(usuario[2], clave),
+            "correo": desencriptar(usuario[3], clave),
+            "direccion": desencriptar(usuario[4], clave)
         }
 
-        update_fields = []
-        update_values = []
-        cambios = []
+        return jsonify(datos_usuario)
 
-        if 'nombre' in data:
-            nuevo_nombre = nombre if nombre is not None else ""
-            if nuevo_nombre != usuario_actual_dict["nombre"]:
-                nombre_encriptado = encriptar(nuevo_nombre, clave)
-                update_fields.append("nombre = %s")
-                update_values.append(nombre_encriptado)
-                cambios.append(f"nombre: {usuario_actual_dict['nombre']} -> {nuevo_nombre}")
+    except Exception as e:
+        print(f"Error en el endpoint GET /api/usuarios/{user_id}/datos: {e}")
+        return jsonify({"error": str(e)}), 500
+    
+@app.route('/usuarios/<int:user_id>', methods=['PUT'])
+@requires_role('cliente')
+def actualizar_usuario(user_id):
+    token = request.headers.get('Authorization')
+    if not token:
+        return jsonify({"error": "Token no proporcionado"}), 401
 
-        if 'correo' in data:
-            nuevo_correo = correo if correo is not None else ""
-            if nuevo_correo != usuario_actual_dict["correo"]:
-                correo_encriptado = encriptar(nuevo_correo, clave)
-                update_fields.append("correo = %s")
-                update_values.append(correo_encriptado)
-                cambios.append(f"correo: {usuario_actual_dict['correo']} -> {nuevo_correo}")
+    try:
+        token = token.split(" ")[1]
+        payload = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+        token_user_id = payload.get('user_id')
 
-        if 'ci' in data:
-            nuevo_ci = ci if ci is not None else ""
-            if nuevo_ci != usuario_actual_dict["ci"]:
-                ci_encriptado = encriptar(nuevo_ci, clave)
-                update_fields.append("ci = %s")
-                update_values.append(ci_encriptado)
-                cambios.append(f"ci: {usuario_actual_dict['ci']} -> {nuevo_ci}")
+        if token_user_id != user_id:
+            return jsonify({"error": "Acceso no autorizado"}), 403
+        
+        data = request.get_json()
+        
+        nombre = data.get('nombre')
+        correo = data.get('correo')
+        ci = data.get('ci')
+        numero_telefono = data.get('numero_telefono')
+        direccion = data.get('direccion')
+        fecha_expiracion = data.get('fecha_expiracion')
+        
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({"error": "No se pudo conectar a la base de datos"}), 500
 
-        if 'numero_telefono' in data:
-            nuevo_numero_telefono = numero_telefono if numero_telefono is not None else ""
-            if nuevo_numero_telefono != usuario_actual_dict["numero_telefono"]:
-                numero_telefono_encriptado = encriptar(nuevo_numero_telefono, clave)
-                update_fields.append("numero_telefono = %s")
-                update_values.append(numero_telefono_encriptado)
-                cambios.append(f"numero_telefono: {usuario_actual_dict['numero_telefono']} -> {nuevo_numero_telefono}")
+        try:
+            cur = conn.cursor()
 
-        if 'direccion' in data:
-            nueva_direccion = direccion if direccion is not None else ""
-            if nueva_direccion != usuario_actual_dict["direccion"]:
-                direccion_encriptado = encriptar(nueva_direccion, clave)
-                update_fields.append("direccion = %s")
-                update_values.append(direccion_encriptado)
-                cambios.append(f"direccion: {usuario_actual_dict['direccion']} -> {nueva_direccion}")
+            cur.execute("SELECT user_id FROM usuarios WHERE user_id = %s;", (user_id,))
+            if cur.fetchone() is None:
+                cur.close()
+                conn.close()
+                return jsonify({"error": "Usuario no encontrado"}), 404
 
-        if 'fecha_expiracion' in data:
-            nueva_fecha = fecha_expiracion if fecha_expiracion else None
-            if nueva_fecha != usuario_actual_dict["fecha_expiracion"]:
-                update_fields.append("fecha_expiracion = %s")
-                update_values.append(nueva_fecha)
-                cambios.append(f"fecha_expiracion: {usuario_actual_dict['fecha_expiracion']} -> {nueva_fecha}")
+            clave = generar_clave(user_id)
 
-        if not update_fields:
+            cur.execute(""" 
+                SELECT nombre, correo, ci, numero_telefono, direccion, fecha_expiracion 
+                FROM usuarios 
+                WHERE user_id = %s;
+            """, (user_id,))
+            usuario_actual = cur.fetchone()
+
+            usuario_actual_dict = {
+                "nombre": desencriptar(usuario_actual[0], clave),
+                "correo": desencriptar(usuario_actual[1], clave),
+                "ci": desencriptar(usuario_actual[2], clave),
+                "numero_telefono": desencriptar(usuario_actual[3], clave),
+                "direccion": desencriptar(usuario_actual[4], clave),
+                "fecha_expiracion": usuario_actual[5].strftime('%Y-%m-%d') if usuario_actual[5] else None
+            }
+
+            update_fields = []
+            update_values = []
+            cambios = []
+
+            if 'nombre' in data:
+                nuevo_nombre = nombre if nombre is not None else ""
+                if nuevo_nombre != usuario_actual_dict["nombre"]:
+                    nombre_encriptado = encriptar(nuevo_nombre, clave)
+                    update_fields.append("nombre = %s")
+                    update_values.append(nombre_encriptado)
+                    cambios.append(f"nombre: {usuario_actual_dict['nombre']} -> {nuevo_nombre}")
+
+            if 'correo' in data:
+                nuevo_correo = correo if correo is not None else ""
+                if nuevo_correo != usuario_actual_dict["correo"]:
+                    correo_encriptado = encriptar(nuevo_correo, clave)
+                    update_fields.append("correo = %s")
+                    update_values.append(correo_encriptado)
+                    cambios.append(f"correo: {usuario_actual_dict['correo']} -> {nuevo_correo}")
+
+            if 'ci' in data:
+                nuevo_ci = ci if ci is not None else ""
+                if nuevo_ci != usuario_actual_dict["ci"]:
+                    ci_encriptado = encriptar(nuevo_ci, clave)
+                    update_fields.append("ci = %s")
+                    update_values.append(ci_encriptado)
+                    cambios.append(f"ci: {usuario_actual_dict['ci']} -> {nuevo_ci}")
+
+            if 'numero_telefono' in data:
+                nuevo_numero_telefono = numero_telefono if numero_telefono is not None else ""
+                if nuevo_numero_telefono != usuario_actual_dict["numero_telefono"]:
+                    numero_telefono_encriptado = encriptar(nuevo_numero_telefono, clave)
+                    update_fields.append("numero_telefono = %s")
+                    update_values.append(numero_telefono_encriptado)
+                    cambios.append(f"numero_telefono: {usuario_actual_dict['numero_telefono']} -> {nuevo_numero_telefono}")
+
+            if 'direccion' in data:
+                nueva_direccion = direccion if direccion is not None else ""
+                if nueva_direccion != usuario_actual_dict["direccion"]:
+                    direccion_encriptado = encriptar(nueva_direccion, clave)
+                    update_fields.append("direccion = %s")
+                    update_values.append(direccion_encriptado)
+                    cambios.append(f"direccion: {usuario_actual_dict['direccion']} -> {nueva_direccion}")
+
+            if 'fecha_expiracion' in data:
+                nueva_fecha = fecha_expiracion if fecha_expiracion else None
+                if nueva_fecha != usuario_actual_dict["fecha_expiracion"]:
+                    update_fields.append("fecha_expiracion = %s")
+                    update_values.append(nueva_fecha)
+                    cambios.append(f"fecha_expiracion: {usuario_actual_dict['fecha_expiracion']} -> {nueva_fecha}")
+
+            if not update_fields:
+                cur.close()
+                conn.close()
+                return jsonify({"error": "No se proporcionaron campos válidos para actualizar"}), 400
+
+            query = f"""
+                UPDATE usuarios 
+                SET {', '.join(update_fields)}
+                WHERE user_id = %s;
+            """
+            update_values.append(user_id)
+
+            cur.execute(query, tuple(update_values))
+            conn.commit()
             cur.close()
             conn.close()
-            return jsonify({"error": "No se proporcionaron campos válidos para actualizar"}), 400
 
-        query = f"""
-            UPDATE usuarios 
-            SET {', '.join(update_fields)}
-            WHERE user_id = %s;
-        """
-        update_values.append(user_id)
+            if cambios:
+                audit_conn = get_audit_db_connection()
+                if audit_conn:
+                    audit_cur = audit_conn.cursor()
+                    audit_cur.execute(
+                        "INSERT INTO audit_logs (user_id, action, details) VALUES (%s, %s, %s)",
+                        (user_id, 'actualizacion_datos', f"El usuario {user_id} modificó: {', '.join(cambios)}")
+                    )
+                    audit_conn.commit()
+                    audit_cur.close()
+                    audit_conn.close()
 
-        cur.execute(query, tuple(update_values))
-        conn.commit()
-        cur.close()
-        conn.close()
+            return jsonify({"message": "Usuario actualizado exitosamente"}), 200
 
-        if cambios:
-            audit_conn = get_audit_db_connection()
-            if audit_conn:
-                audit_cur = audit_conn.cursor()
-                audit_cur.execute(
-                    "INSERT INTO audit_logs (user_id, action, details) VALUES (%s, %s, %s)",
-                    (user_id, 'actualizacion_datos', f"El usuario {user_id} modificó: {', '.join(cambios)}")
-                )
-                audit_conn.commit()
-                audit_cur.close()
-                audit_conn.close()
+        except Exception as e:
+            print(f"Error en el endpoint PUT /usuarios/{user_id}: {e}")
+            return jsonify({"error": str(e)}), 500
 
-        return jsonify({"message": "Usuario actualizado exitosamente"}), 200
-
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Token expirado"}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Token inválido"}), 401
     except Exception as e:
         print(f"Error en el endpoint PUT /usuarios/{user_id}: {e}")
         return jsonify({"error": str(e)}), 500
+
 # Endpoint para obtener un usuario por su user_id
 @app.route('/usuarios/<int:user_id>', methods=['GET'])
 @requires_role('cliente')
@@ -384,11 +444,11 @@ def crear_usuario():
 
 # Primero, separamos la ruta de renderizado y la ruta de datos
 @app.route('/usuarios/resumen', methods=['GET'])
+
 def resumen_page():
     # Similar a la ruta de perfil, solo renderiza la plantilla
     return render_template('resumen.html')
 
-# Nueva ruta para obtener los datos del resumen
 @app.route('/api/usuarios/resumen', methods=['GET'])
 @requires_role('admin')
 def obtener_resumen_usuarios():
@@ -404,7 +464,7 @@ def obtener_resumen_usuarios():
             INNER JOIN login l ON u.user_id = l.id
             WHERE l.role = 'cliente';
         """)
-        
+
         usuarios = cur.fetchall()
         cur.close()
         conn.close()
@@ -427,6 +487,7 @@ def obtener_resumen_usuarios():
 
             if "nombre" in campos_llenos:
                 usuarios_resumen.append({
+                    "user_id": user_id,  # Asegúrate de incluir el user_id
                     "nombre": campos_llenos.pop("nombre"),
                     "campos_llenos": list(campos_llenos.keys())
                 })
@@ -436,8 +497,9 @@ def obtener_resumen_usuarios():
     except Exception as e:
         print(f"Error en el endpoint GET /api/usuarios/resumen: {e}")
         return jsonify({"error": str(e)}), 500
-    
+
 @app.route('/perfil/<int:user_id>', methods=['GET'])
+
 def perfil(user_id):
     # Aquí podrías enviar el user_id a la plantilla si lo necesitas para alguna lógica
     return render_template('perfil.html', user_id=user_id)

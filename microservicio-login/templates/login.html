@@ -4,10 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Iniciar Sesión</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
   <style>
     body {
-      font-family: Arial, sans-serif;
-      background-color: #f4f4f4;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f8f9fa;
       display: flex;
       justify-content: center;
       align-items: center;
@@ -16,85 +17,122 @@
     }
     .login-container {
       background-color: #fff;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-      width: 300px;
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+      width: 320px;
       text-align: center;
     }
     .login-container h2 {
       margin-bottom: 20px;
+      color: #333;
+      font-weight: bold;
     }
     .login-container input {
       width: 100%;
-      padding: 10px;
+      padding: 12px;
       margin: 10px 0;
-      border: 1px solid #ccc;
-      border-radius: 4px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 14px;
+      box-sizing: border-box;
     }
     .login-container button {
       width: 100%;
-      padding: 10px;
-      background-color: #28a745;
+      padding: 12px;
+      background-color: #333;
       color: #fff;
       border: none;
-      border-radius: 4px;
+      border-radius: 8px;
       cursor: pointer;
+      font-size: 16px;
+      transition: background-color 0.3s;
     }
     .login-container button:hover {
-      background-color: #218838;
+      background-color: #555;
     }
     .error-message {
-      color: red;
-      margin-top: 10px;
+      color: #721c24;
+      background-color: #f8d7da;
+      border: 1px solid #f5c6cb;
+      padding: 10px;
+      border-radius: 8px;
+      margin-top: 15px;
+    }
+    .input-group {
+      position: relative;
+      margin-bottom: 15px;
+    }
+    .input-group i {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #aaa;
+    }
+    .input-group input {
+      padding-left: 35px;
     }
   </style>
 </head>
 <body>
   <div class="login-container">
-    <h2>Iniciar Sesión</h2>
+    <h2><i class="fas fa-lock"></i> Iniciar Sesión</h2>
     <form id="loginForm">
-      <input type="text" id="username" name="username" placeholder="Nombre de usuario" required>
-      <input type="password" id="password" name="password" placeholder="Contraseña" required>
+      <div class="input-group">
+        <i class="fas fa-user"></i>
+        <input type="text" id="username" name="username" placeholder="Nombre de usuario" required>
+      </div>
+      <div class="input-group">
+        <i class="fas fa-key"></i>
+        <input type="password" id="password" name="password" placeholder="Contraseña" required>
+      </div>
       <button type="submit">Iniciar Sesión</button>
     </form>
     <div id="errorMessage" class="error-message"></div>
   </div>
 
   <script>
- document.getElementById('loginForm').addEventListener('submit', function(event) {
-    event.preventDefault();
+    document.getElementById('loginForm').addEventListener('submit', function(event) {
+      event.preventDefault();
 
-    const username = document.getElementById('username').value;
-    const password = document.getElementById('password').value;
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      const errorMessage = document.getElementById('errorMessage');
 
-    fetch('/login', {
+      // Validación de campos
+      if (username === '' || password === '') {
+        errorMessage.textContent = 'Por favor, completa todos los campos.';
+        return;
+      }
+
+      fetch('/login', {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json'
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ username, password })
-    })
-    .then(response => response.json())
-    .then(data => {
+      })
+      .then(response => response.json())
+      .then(data => {
         if (data.error) {
-            document.getElementById('errorMessage').textContent = data.error;
+          errorMessage.textContent = data.error;
         } else {
-            // Construcción de la cadena de la cookie sin SameSite
-            document.cookie = `authToken=${data.token}; path=/; SameSite=None; Secure; domain=localhost`;
+          // Construcción de la cadena de la cookie sin SameSite
+          document.cookie = `authToken=${data.token}; path=/; SameSite=None; Secure; domain=localhost`;
 
-            if (data.redirect_url) {
-                window.location.href = 'http://localhost:5001/usuarios/resumen';
-            } else {
-                window.location.href = `http://localhost:5001/perfil/${data.user_id}`;
-            }
+          if (data.redirect_url) {
+            window.location.href = 'http://localhost:5001/usuarios/resumen';
+          } else {
+            window.location.href = `http://localhost:5001/perfil/${data.user_id}`;
+          }
         }
-    })
-    .catch(error => {
+      })
+      .catch(error => {
         console.error('Error:', error);
-        document.getElementById('errorMessage').textContent = 'Hubo un error al iniciar sesión';
+        errorMessage.textContent = 'Hubo un error al iniciar sesión';
+      });
     });
-});
   </script>
 </body>
 </html>
