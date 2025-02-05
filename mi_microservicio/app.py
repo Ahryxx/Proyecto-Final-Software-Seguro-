@@ -6,23 +6,36 @@ from cryptography.hazmat.primitives import padding
 from cryptography.hazmat.backends import default_backend
 import os
 import base64
+from functools import wraps
+from flask import request, jsonify
+import jwt
+import datetime
+
 
 app = Flask(__name__)
 
 # Conexión a la base de datos
+# Nueva función de conexión usando la URL completa
 def get_db_connection():
     try:
         conn = psycopg2.connect(
-            host=DB_HOST,
-            database=DB_NAME,
-            user=DB_USER,
-            password=DB_PASSWORD,
-            port=DB_PORT
+            "postgresql://postgres:npg_H9UzaGen3Zfg@ep-dark-resonance-a2kztjpx-pooler.eu-central-1.aws.neon.tech/secure?sslmode=require"
         )
         print("Conexión a la base de datos establecida correctamente.")
         return conn
     except Exception as e:
         print("Error al conectar con la base de datos:", e)
+        return None
+    
+def get_audit_db_connection():
+    try:
+        conn = psycopg2.connect(
+            "postgresql://postgres:npg_H9UzaGen3Zfg@ep-dark-resonance-a2kztjpx-pooler.eu-central-1.aws.neon.tech/auditoria?sslmode=require"
+        )
+        print("Conexión a la base de datos de auditoría establecida correctamente.")
+        return conn
+    except Exception as e:
+        print("Error al conectar con la base de datos de auditoría:", e)
         return None
 
 # Función para generar una clave única usando el user_id del usuario
@@ -34,6 +47,44 @@ def generar_clave(user_id):
     clave = digest.finalize()
     print(f"Clave generada para user_id={user_id}: {clave.hex()}")
     return clave
+
+SECRET_KEY = '7Gj9@b2M'  # Debe ser la misma que en la primera API
+
+# Decorador para verificar roles
+def requires_role(role):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            token = request.headers.get('Authorization')
+            if not token:
+                return jsonify({"error": "Token no proporcionado"}), 401
+
+            try:
+                # Verifica si el token comienza con "Bearer "
+                if not token.startswith("Bearer "):
+                    return jsonify({"error": "Formato de token inválido"}), 401
+
+                # Extrae el token sin "Bearer "
+                token = token.split(" ")[1]
+
+                # Decodifica el token
+                payload = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+                print("Payload decodificado:", payload)  # Log para depuración
+
+                # Verifica el rol
+                if payload.get('role') != role:
+                    return jsonify({"error": "Acceso no autorizado"}), 403
+
+                return func(*args, **kwargs)
+
+            except jwt.ExpiredSignatureError:
+                return jsonify({"error": "Token expirado"}), 401
+            except jwt.InvalidTokenError as e:
+                print("Error decodificando el token:", e)  # Log para depuración
+                return jsonify({"error": "Token inválido"}), 401
+
+        return wrapper
+    return decorator
 
 # Función para encriptar datos
 def encriptar(datos, clave):
@@ -86,14 +137,13 @@ def desencriptar(datos_encriptados, clave):
 def actualizar_usuario(user_id):
     data = request.get_json()
     
-    # Obtener los campos de la solicitud (pueden ser nulos o vacíos)
     nombre = data.get('nombre')
     correo = data.get('correo')
     ci = data.get('ci')
     numero_telefono = data.get('numero_telefono')
     direccion = data.get('direccion')
+    fecha_expiracion = data.get('fecha_expiracion')
     
-    # Conectar a la base de datos
     conn = get_db_connection()
     if conn is None:
         return jsonify({"error": "No se pudo conectar a la base de datos"}), 500
@@ -101,53 +151,86 @@ def actualizar_usuario(user_id):
     try:
         cur = conn.cursor()
         
-        # Verificar si el usuario existe
         cur.execute("SELECT user_id FROM usuarios WHERE user_id = %s;", (user_id,))
         if cur.fetchone() is None:
             cur.close()
             conn.close()
             return jsonify({"error": "Usuario no encontrado"}), 404
 
-        # Generar la clave para encriptar los datos (basada en el user_id)
         clave = generar_clave(user_id)
 
-        # Preparar los campos para la actualización
+        cur.execute("""
+            SELECT nombre, correo, ci, numero_telefono, direccion, fecha_expiracion 
+            FROM usuarios 
+            WHERE user_id = %s;
+        """, (user_id,))
+        usuario_actual = cur.fetchone()
+
+        usuario_actual_dict = {
+            "nombre": desencriptar(usuario_actual[0], clave),
+            "correo": desencriptar(usuario_actual[1], clave),
+            "ci": desencriptar(usuario_actual[2], clave),
+            "numero_telefono": desencriptar(usuario_actual[3], clave),
+            "direccion": desencriptar(usuario_actual[4], clave),
+            "fecha_expiracion": usuario_actual[5].strftime('%Y-%m-%d') if usuario_actual[5] else None
+        }
+
         update_fields = []
         update_values = []
+        cambios = []
 
-        # Verificar si el campo está presente en la solicitud (incluso si está vacío)
         if 'nombre' in data:
-            nombre_encriptado = encriptar(nombre if nombre is not None else "", clave)
-            update_fields.append("nombre = %s")
-            update_values.append(nombre_encriptado)
+            nuevo_nombre = nombre if nombre is not None else ""
+            if nuevo_nombre != usuario_actual_dict["nombre"]:
+                nombre_encriptado = encriptar(nuevo_nombre, clave)
+                update_fields.append("nombre = %s")
+                update_values.append(nombre_encriptado)
+                cambios.append(f"nombre: {usuario_actual_dict['nombre']} -> {nuevo_nombre}")
 
         if 'correo' in data:
-            correo_encriptado = encriptar(correo if correo is not None else "", clave)
-            update_fields.append("correo = %s")
-            update_values.append(correo_encriptado)
+            nuevo_correo = correo if correo is not None else ""
+            if nuevo_correo != usuario_actual_dict["correo"]:
+                correo_encriptado = encriptar(nuevo_correo, clave)
+                update_fields.append("correo = %s")
+                update_values.append(correo_encriptado)
+                cambios.append(f"correo: {usuario_actual_dict['correo']} -> {nuevo_correo}")
 
         if 'ci' in data:
-            ci_encriptado = encriptar(ci if ci is not None else "", clave)
-            update_fields.append("ci = %s")
-            update_values.append(ci_encriptado)
+            nuevo_ci = ci if ci is not None else ""
+            if nuevo_ci != usuario_actual_dict["ci"]:
+                ci_encriptado = encriptar(nuevo_ci, clave)
+                update_fields.append("ci = %s")
+                update_values.append(ci_encriptado)
+                cambios.append(f"ci: {usuario_actual_dict['ci']} -> {nuevo_ci}")
 
         if 'numero_telefono' in data:
-            numero_telefono_encriptado = encriptar(numero_telefono if numero_telefono is not None else "", clave)
-            update_fields.append("numero_telefono = %s")
-            update_values.append(numero_telefono_encriptado)
+            nuevo_numero_telefono = numero_telefono if numero_telefono is not None else ""
+            if nuevo_numero_telefono != usuario_actual_dict["numero_telefono"]:
+                numero_telefono_encriptado = encriptar(nuevo_numero_telefono, clave)
+                update_fields.append("numero_telefono = %s")
+                update_values.append(numero_telefono_encriptado)
+                cambios.append(f"numero_telefono: {usuario_actual_dict['numero_telefono']} -> {nuevo_numero_telefono}")
 
         if 'direccion' in data:
-            direccion_encriptado = encriptar(direccion if direccion is not None else "", clave)
-            update_fields.append("direccion = %s")
-            update_values.append(direccion_encriptado)
+            nueva_direccion = direccion if direccion is not None else ""
+            if nueva_direccion != usuario_actual_dict["direccion"]:
+                direccion_encriptado = encriptar(nueva_direccion, clave)
+                update_fields.append("direccion = %s")
+                update_values.append(direccion_encriptado)
+                cambios.append(f"direccion: {usuario_actual_dict['direccion']} -> {nueva_direccion}")
 
-        # Si no hay campos para actualizar, retornar un error
+        if 'fecha_expiracion' in data:
+            nueva_fecha = fecha_expiracion if fecha_expiracion else None
+            if nueva_fecha != usuario_actual_dict["fecha_expiracion"]:
+                update_fields.append("fecha_expiracion = %s")
+                update_values.append(nueva_fecha)
+                cambios.append(f"fecha_expiracion: {usuario_actual_dict['fecha_expiracion']} -> {nueva_fecha}")
+
         if not update_fields:
             cur.close()
             conn.close()
             return jsonify({"error": "No se proporcionaron campos válidos para actualizar"}), 400
 
-        # Construir la consulta SQL dinámicamente
         query = f"""
             UPDATE usuarios 
             SET {', '.join(update_fields)}
@@ -155,11 +238,22 @@ def actualizar_usuario(user_id):
         """
         update_values.append(user_id)
 
-        # Ejecutar la consulta
         cur.execute(query, tuple(update_values))
         conn.commit()
         cur.close()
         conn.close()
+
+        if cambios:
+            audit_conn = get_audit_db_connection()
+            if audit_conn:
+                audit_cur = audit_conn.cursor()
+                audit_cur.execute(
+                    "INSERT INTO audit_logs (user_id, action, details) VALUES (%s, %s, %s)",
+                    (user_id, 'actualizacion_datos', f"El usuario {user_id} modificó: {', '.join(cambios)}")
+                )
+                audit_conn.commit()
+                audit_cur.close()
+                audit_conn.close()
 
         return jsonify({"message": "Usuario actualizado exitosamente"}), 200
 
@@ -168,15 +262,30 @@ def actualizar_usuario(user_id):
         return jsonify({"error": str(e)}), 500
 # Endpoint para obtener un usuario por su user_id
 @app.route('/usuarios/<int:user_id>', methods=['GET'])
+@requires_role('cliente')
 def get_usuario(user_id):
-    conn = get_db_connection()
-    if conn is None:
-        return jsonify({"error": "No se pudo conectar a la base de datos"}), 500
+    token = request.headers.get('Authorization')
+    if not token:
+        return jsonify({"error": "Token no proporcionado"}), 401
 
     try:
+        token = token.split(" ")[1]
+        payload = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+        token_user_id = payload.get('user_id')
+
+        if token_user_id != user_id:
+            return jsonify({"error": "Acceso no autorizado"}), 403
+
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({"error": "No se pudo conectar a la base de datos"}), 500
+
         cur = conn.cursor()
-        # Consulta para obtener el usuario por user_id
-        cur.execute("SELECT user_id, nombre, ci, numero_telefono, correo, direccion FROM usuarios WHERE user_id = %s;", (user_id,))
+        cur.execute("""
+            SELECT user_id, nombre, ci, numero_telefono, correo, direccion, fecha_expiracion 
+            FROM usuarios 
+            WHERE user_id = %s;
+        """, (user_id,))
         usuario = cur.fetchone()
         cur.close()
         conn.close()
@@ -185,8 +294,6 @@ def get_usuario(user_id):
             print(f"Usuario con user_id={user_id} no encontrado.")
             return jsonify({"error": "Usuario no encontrado"}), 404
 
-        # Desencriptar los datos del usuario
-        user_id = usuario[0]
         clave = generar_clave(user_id)
 
         print(f"Desencriptando datos para user_id={user_id}...")
@@ -196,16 +303,30 @@ def get_usuario(user_id):
             "ci": desencriptar(usuario[2], clave),
             "numero_telefono": desencriptar(usuario[3], clave),
             "correo": desencriptar(usuario[4], clave),
-            "direccion": desencriptar(usuario[5], clave)
+            "direccion": desencriptar(usuario[5], clave),
+            "fecha_expiracion": usuario[6].strftime('%Y-%m-%d') if usuario[6] else None
         }
 
-        print(f"Usuario obtenido: {usuario_dict}")
+        audit_conn = get_audit_db_connection()
+        if audit_conn:
+            audit_cur = audit_conn.cursor()
+            audit_cur.execute(
+                "INSERT INTO audit_logs (user_id, action, details) VALUES (%s, %s, %s)",
+                (user_id, 'acceso_datos', f"El usuario {user_id} accedió a sus datos.")
+            )
+            audit_conn.commit()
+            audit_cur.close()
+            audit_conn.close()
+
         return jsonify(usuario_dict)
 
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Token expirado"}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Token inválido"}), 401
     except Exception as e:
         print(f"Error en el endpoint /usuarios/<int:user_id>: {e}")
         return jsonify({"error": str(e)}), 500
-
 # Endpoint para crear un nuevo usuario
 @app.route('/usuarios', methods=['POST'])
 def crear_usuario():
@@ -261,6 +382,61 @@ def crear_usuario():
         print(f"Error en el endpoint /usuarios: {e}")
         return jsonify({"error": str(e)}), 500
     
+
+# Primero, separamos la ruta de renderizado y la ruta de datos
+@app.route('/usuarios/resumen', methods=['GET'])
+def resumen_page():
+    # Similar a la ruta de perfil, solo renderiza la plantilla
+    return render_template('resumen.html')
+
+# Nueva ruta para obtener los datos del resumen
+@app.route('/api/usuarios/resumen', methods=['GET'])
+@requires_role('admin')
+def obtener_resumen_usuarios():
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({"error": "No se pudo conectar a la base de datos"}), 500
+
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT u.user_id, u.nombre, u.ci, u.numero_telefono, u.correo, u.direccion 
+            FROM usuarios u
+            INNER JOIN login l ON u.user_id = l.id
+            WHERE l.role = 'cliente';
+        """)
+        
+        usuarios = cur.fetchall()
+        cur.close()
+        conn.close()
+
+        usuarios_resumen = []
+
+        for usuario in usuarios:
+            user_id = usuario[0]
+            clave = generar_clave(user_id)
+
+            datos_usuario = {
+                "nombre": desencriptar(usuario[1], clave),
+                "ci": desencriptar(usuario[2], clave),
+                "numero_telefono": desencriptar(usuario[3], clave),
+                "correo": desencriptar(usuario[4], clave),
+                "direccion": desencriptar(usuario[5], clave)
+            }
+
+            campos_llenos = {k: v for k, v in datos_usuario.items() if v}
+
+            if "nombre" in campos_llenos:
+                usuarios_resumen.append({
+                    "nombre": campos_llenos.pop("nombre"),
+                    "campos_llenos": list(campos_llenos.keys())
+                })
+
+        return jsonify(usuarios_resumen)
+
+    except Exception as e:
+        print(f"Error en el endpoint GET /api/usuarios/resumen: {e}")
+        return jsonify({"error": str(e)}), 500
     
 @app.route('/perfil/<int:user_id>', methods=['GET'])
 def perfil(user_id):

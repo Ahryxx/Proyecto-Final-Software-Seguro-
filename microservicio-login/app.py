@@ -12,12 +12,13 @@ import requests
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import padding, hashes
 from cryptography.hazmat.backends import default_backend
+from apscheduler.schedulers.background import BackgroundScheduler
 import os
 import base64
 
 app = Flask(__name__)
 
-SECRET_KEY = 'mi_clave_secreta'  # Debería ser más seguro en producción
+SECRET_KEY = '7Gj9@b2M'  # Debería ser más seguro en producción
 DB_HOST = 'localhost'
 DB_NAME = 'secure'
 DB_USER = 'postgres'
@@ -33,23 +34,27 @@ EMAIL_PASSWORD = 'sbhs dpmt xulh wytc'
 
 # Conexión a la base de datos principal (usuarios)
 def get_db_connection():
-    return psycopg2.connect(
-        host=DB_HOST,
-        database=DB_NAME,
-        user=DB_USER,
-        password=DB_PASSWORD,
-        port=DB_PORT
-    )
+    try:
+        conn = psycopg2.connect(
+            "postgresql://postgres:npg_H9UzaGen3Zfg@ep-dark-resonance-a2kztjpx-pooler.eu-central-1.aws.neon.tech/secure?sslmode=require"
+        )
+        print("Conexión a la base de datos establecida correctamente.")
+        return conn
+    except Exception as e:
+        print("Error al conectar con la base de datos:", e)
+        return None
 
 # Conexión a la base de datos de auditoría
 def get_audit_db_connection():
-    return psycopg2.connect(
-        host=DB_HOST,
-        database=AUDIT_DB_NAME,
-        user=DB_USER,
-        password=DB_PASSWORD,
-        port=DB_PORT
-    )
+    try:
+        conn = psycopg2.connect(
+            "postgresql://postgres:npg_H9UzaGen3Zfg@ep-dark-resonance-a2kztjpx-pooler.eu-central-1.aws.neon.tech/auditoria?sslmode=require"
+        )
+        print("Conexión a la base de datos establecida correctamente.")
+        return conn
+    except Exception as e:
+        print("Error al conectar con la base de datos:", e)
+        return None
 
 # Decorador para verificar roles
 def requires_role(role):
@@ -93,6 +98,12 @@ def requires_role(role):
         return wrapper
     return decorator
 
+
+@app.route("/eliminar_expirados", methods=["GET"])
+def ejecutar_eliminar_expirados():
+    eliminar_usuarios_expirados()
+    return "Usuarios expirados procesados correctamente.", 200
+
 # Función para enviar correo electrónico
 def send_email(to_email, subject, body):
     try:
@@ -109,6 +120,55 @@ def send_email(to_email, subject, body):
     except Exception as e:
         print(f"Error enviando correo: {e}")
         return False
+    
+
+scheduler = BackgroundScheduler()
+
+# Función que se ejecutará periódicamente
+def eliminar_usuarios_expirados():
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            print("No se pudo conectar a la base de datos")
+            return
+
+        cur = conn.cursor()
+
+        # Obtener nombres de columnas excepto 'user_id' e 'id'
+        cur.execute("""
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'usuarios' AND column_name NOT IN ('user_id', 'id');
+        """)
+        columnas = [row[0] for row in cur.fetchall()]
+        
+        if not columnas:
+            print("No hay columnas para limpiar.")
+            return
+        
+        # Crear la consulta UPDATE dinámica
+        update_query = f"""
+            UPDATE usuarios 
+            SET {", ".join(f"{col} = NULL" for col in columnas)}
+            WHERE fecha_expiracion IS NOT NULL AND fecha_expiracion < %s;
+        """
+        
+        cur.execute(update_query, (datetime.datetime.now(),))
+        conn.commit()
+        
+        print(f"Usuarios expirados han sido limpiados.")
+
+        cur.close()
+        conn.close()
+
+    except Exception as e:
+        print(f"Error al limpiar usuarios expirados: {e}")
+
+# Programar la tarea para que se ejecute cada 24 horas (puedes ajustar la frecuencia)
+scheduler.add_job(eliminar_usuarios_expirados, 'interval', hours=24)
+
+# Iniciar el programador
+scheduler.start()
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -141,7 +201,7 @@ def login():
             audit_cur = audit_conn.cursor()
             audit_cur.execute(
                 "INSERT INTO audit_logs (user_id, action, details) VALUES (%s, %s, %s)",
-                (None, 'login_fallido', f"Intento fallido para: {username}")
+                (None, 'login_fallido', f"Intento fallido para: {username} desde IP: {request.remote_addr}")
             )
             audit_conn.commit()
             audit_cur.close()
@@ -157,8 +217,9 @@ def login():
         # Generar un token JWT para el usuario
         token = jwt.encode({
             'username': user['username'],
+            'user_id': user['id'],  # Added user_id
             'role': user['role'],
-            'exp': datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)  # Token expira en 1 hora
+            'exp': datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)
         }, SECRET_KEY, algorithm='HS256')
 
         print("Token generado:", token)  # Log para depuración
@@ -178,8 +239,16 @@ def login():
         cur.close()
         conn.close()
 
-        # Devolver el token y el ID del usuario en la respuesta
-        return jsonify({'token': token, 'user_id': user['id']}), 200
+        # Si el rol es 'admin', redirigir a localhost:5001/usuarios/resumen
+        if user['role'] == 'admin':
+            return jsonify({
+                'token': token,
+                'user_id': user['id'],
+                'redirect_url': 'http://localhost:5001/usuarios/resumen'
+            }), 200
+        else:
+            # Devolver el token y el ID del usuario en la respuesta
+            return jsonify({'token': token, 'user_id': user['id']}), 200
 
     except Exception as e:
         # Manejar cualquier error que ocurra durante el proceso

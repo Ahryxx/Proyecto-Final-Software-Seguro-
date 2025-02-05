@@ -1,284 +1,286 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Perfil de Usuario</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-        }
-        .profile-container {
-            background-color: #fff;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            width: 300px;
-            text-align: center;
-        }
-        .profile-container h2 {
-            margin-bottom: 20px;
-        }
-        .profile-container input {
-            width: 100%;
-            padding: 10px;
-            margin: 10px 0;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-        .profile-container button {
-            width: 100%;
-            padding: 10px;
-            background-color: #28a745;
-            color: #fff;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        .profile-container button:hover {
-            background-color: #218838;
-        }
-        .error-message {
-            color: red;
-            margin-top: 10px;
-        }
-        .switch {
-            position: relative;
-            display: inline-block;
-            width: 60px;
-            height: 34px;
-        }
-        .switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-        .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #ccc;
-            transition: .4s;
-            border-radius: 34px;
-        }
-        .slider:before {
-            position: absolute;
-            content: "";
-            height: 26px;
-            width: 26px;
-            left: 4px;
-            bottom: 4px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
-        input:checked + .slider {
-            background-color: #28a745;
-        }
-        input:checked + .slider:before {
-            transform: translateX(26px);
-        }
-        .disabled {
-            background-color: #e9ecef;
-            pointer-events: none;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Perfil de Usuario</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .profile-container {
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      width: 300px;
+      text-align: center;
+    }
+    .profile-container h2 {
+      margin-bottom: 20px;
+    }
+    .profile-container input {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    .profile-container button {
+      width: 100%;
+      padding: 10px;
+      background-color: #28a745;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .profile-container button:hover {
+      background-color: #218838;
+    }
+    .error-message {
+      color: red;
+      margin-top: 10px;
+    }
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 60px;
+      height: 34px;
+    }
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: .4s;
+      border-radius: 34px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 26px;
+      width: 26px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+    input:checked + .slider {
+      background-color: #28a745;
+    }
+    input:checked + .slider:before {
+      transform: translateX(26px);
+    }
+    .disabled {
+      background-color: #e9ecef;
+      pointer-events: none;
+    }
+  </style>
 </head>
 <body>
-    <div class="profile-container">
-        <h2>Perfil de Usuario</h2>
-        <form id="profileForm">
-            <label class="switch">
-                <input type="checkbox" id="toggleNombre">
-                <span class="slider"></span>
-            </label>
-            <input type="text" id="nombre" name="nombre" placeholder="Nombre" required>
+  <div class="profile-container">
+    <h2>Perfil de Usuario</h2>
+    <form id="profileForm">
+      <label class="switch">
+        <input type="checkbox" id="toggleNombre">
+        <span class="slider"></span>
+      </label>
+      <input type="text" id="nombre" name="nombre" placeholder="Nombre" required>
 
-            <label class="switch">
-                <input type="checkbox" id="toggleCorreo">
-                <span class="slider"></span>
-            </label>
-            <input type="email" id="correo" name="correo" placeholder="Correo electrónico" required>
+      <label class="switch">
+        <input type="checkbox" id="toggleCorreo">
+        <span class="slider"></span>
+      </label>
+      <input type="email" id="correo" name="correo" placeholder="Correo electrónico" required>
 
-            <label class="switch">
-                <input type="checkbox" id="toggleCi">
-                <span class="slider"></span>
-            </label>
-            <input type="text" id="ci" name="ci" placeholder="Cédula de identidad">
+      <label class="switch">
+        <input type="checkbox" id="toggleCi">
+        <span class="slider"></span>
+      </label>
+      <input type="text" id="ci" name="ci" placeholder="Cédula de identidad">
 
-            <label class="switch">
-                <input type="checkbox" id="toggleTelefono">
-                <span class="slider"></span>
-            </label>
-            <input type="text" id="numero_telefono" name="numero_telefono" placeholder="Número de teléfono">
+      <label class="switch">
+        <input type="checkbox" id="toggleTelefono">
+        <span class="slider"></span>
+      </label>
+      <input type="text" id="numero_telefono" name="numero_telefono" placeholder="Número de teléfono">
 
-            <label class="switch">
-                <input type="checkbox" id="toggleDireccion">
-                <span class="slider"></span>
-            </label>
-            <input type="text" id="direccion" name="direccion" placeholder="Dirección">
+      <label class="switch">
+        <input type="checkbox" id="toggleDireccion">
+        <span class="slider"></span>
+      </label>
+      <input type="text" id="direccion" name="direccion" placeholder="Dirección">
 
-            <button type="submit">Guardar Cambios</button>
-        </form>
-        <div id="errorMessage" class="error-message"></div>
-    </div>
+      <label class="switch">
+        <input type="checkbox" id="toggleFechaExpiracion">
+        <span class="slider"></span>
+    </label>
+    <input type="date" id="fecha_expiracion" name="fecha_expiracion" placeholder="Fecha de expiración">
+    
 
-    <script>
-        // Obtener el user_id de la URL (asumiendo que la URL es algo como http://localhost:5001/usuarios/38)
-        const userId = window.location.pathname.split('/').pop();
+      <button type="submit">Guardar Cambios</button>
+    </form>
+    <div id="errorMessage" class="error-message"></div>
+  </div>
 
-        // Hacer una solicitud a la API para obtener los datos del usuario
-        fetch(`http://localhost:5001/usuarios/${userId}`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.error) {
-                    // Mostrar mensaje de error
-                    document.getElementById('errorMessage').textContent = data.error;
-                } else {
-                    // Autocompletar el formulario con los datos obtenidos
-                    const nombreField = document.getElementById('nombre');
-                    const correoField = document.getElementById('correo');
-                    const ciField = document.getElementById('ci');
-                    const telefonoField = document.getElementById('numero_telefono');
-                    const direccionField = document.getElementById('direccion');
+  <script>
+    // Obtener el user_id desde la URL
+    const userId = window.location.pathname.split('/').pop();
+    
+    // Obtener el token de las cookies
+    function getCookie(name) {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+    const token = getCookie('authToken');
 
-                    nombreField.value = data.nombre || '';
-                    correoField.value = data.correo || '';
-                    ciField.value = data.ci || '';
-                    telefonoField.value = data.numero_telefono || '';
-                    direccionField.value = data.direccion || '';
+    // Solicitud GET para obtener los datos del usuario
+    fetch(`http://localhost:5001/usuarios/${userId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.error) {
+        document.getElementById('errorMessage').textContent = data.error;
+      } else {
+        // Completar el formulario con los datos obtenidos
+        document.getElementById('nombre').value = data.nombre || '';
+        document.getElementById('correo').value = data.correo || '';
+        document.getElementById('ci').value = data.ci || '';
+        document.getElementById('numero_telefono').value = data.numero_telefono || '';
+        document.getElementById('direccion').value = data.direccion || '';
+        
 
-                    // Verificar si los campos están vacíos o son nulos y ajustar los switches
-                    document.getElementById('toggleNombre').checked = !!data.nombre;
-                    nombreField.disabled = !document.getElementById('toggleNombre').checked;
+        // Actualizar el estado de los switches y campos
+        document.getElementById('toggleNombre').checked = !!data.nombre;
+        document.getElementById('nombre').disabled = !document.getElementById('toggleNombre').checked;
 
-                    document.getElementById('toggleCorreo').checked = !!data.correo;
-                    correoField.disabled = !document.getElementById('toggleCorreo').checked;
+        document.getElementById('toggleCorreo').checked = !!data.correo;
+        document.getElementById('correo').disabled = !document.getElementById('toggleCorreo').checked;
 
-                    document.getElementById('toggleCi').checked = !!data.ci;
-                    ciField.disabled = !document.getElementById('toggleCi').checked;
+        document.getElementById('toggleCi').checked = !!data.ci;
+        document.getElementById('ci').disabled = !document.getElementById('toggleCi').checked;
 
-                    document.getElementById('toggleTelefono').checked = !!data.numero_telefono;
-                    telefonoField.disabled = !document.getElementById('toggleTelefono').checked;
+        document.getElementById('toggleTelefono').checked = !!data.numero_telefono;
+        document.getElementById('numero_telefono').disabled = !document.getElementById('toggleTelefono').checked;
 
-                    document.getElementById('toggleDireccion').checked = !!data.direccion;
-                    direccionField.disabled = !document.getElementById('toggleDireccion').checked;
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                document.getElementById('errorMessage').textContent = 'Hubo un error al cargar los datos del usuario';
-            });
+        document.getElementById('toggleDireccion').checked = !!data.direccion;
+        document.getElementById('direccion').disabled = !document.getElementById('toggleDireccion').checked;
+        document.getElementById('toggleFechaExpiracion').checked = !!data.fecha_expiracion;
+        document.getElementById('fecha_expiracion').disabled = !document.getElementById('toggleFechaExpiracion').checked;
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      document.getElementById('errorMessage').textContent = 'Hubo un error al cargar los datos del usuario';
+    });
 
-        // Manejar el envío del formulario
-        document.getElementById('profileForm').addEventListener('submit', function(event) {
-            event.preventDefault(); // Evitar que el formulario se envíe de manera tradicional
+    // Manejo del envío del formulario para actualizar datos
+    document.getElementById('profileForm').addEventListener('submit', function(event) {
+      event.preventDefault();
 
-            // Crear un objeto con los datos del formulario
-            const formData = {};
+      // Construir objeto con los datos del formulario
+      const formData = {
+        nombre: document.getElementById('toggleNombre').checked ? document.getElementById('nombre').value : null,
+        correo: document.getElementById('toggleCorreo').checked ? document.getElementById('correo').value : null,
+        ci: document.getElementById('toggleCi').checked ? document.getElementById('ci').value : null,
+        numero_telefono: document.getElementById('toggleTelefono').checked ? document.getElementById('numero_telefono').value : null,
+        direccion: document.getElementById('toggleDireccion').checked ? document.getElementById('direccion').value : null,
+        fecha_expiracion: document.getElementById('toggleFechaExpiracion').checked ? document.getElementById('fecha_expiracion').value : null
+        };
 
-            // Solo añadir campos al objeto si su switch está habilitado
-            if (document.getElementById('toggleNombre').checked) {
-                formData.nombre = document.getElementById('nombre').value;
-            } else {
-                formData.nombre = null; // Limpiar el campo si el switch está deshabilitado
-            }
+      fetch(`http://localhost:5001/usuarios/${userId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(formData)
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.error) {
+          document.getElementById('errorMessage').textContent = data.error;
+        } else {
+          alert('Datos actualizados correctamente');
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        document.getElementById('errorMessage').textContent = 'Hubo un error al actualizar los datos';
+      });
+    });
 
-            if (document.getElementById('toggleCorreo').checked) {
-                formData.correo = document.getElementById('correo').value;
-            } else {
-                formData.correo = null;
-            }
+    // Funcionalidad de los switches para habilitar/deshabilitar campos
+    document.getElementById('toggleNombre').addEventListener('change', function() {
+      const nombreField = document.getElementById('nombre');
+      if (!this.checked) {
+        nombreField.value = '';
+      }
+      nombreField.disabled = !this.checked;
+    });
 
-            if (document.getElementById('toggleCi').checked) {
-                formData.ci = document.getElementById('ci').value;
-            } else {
-                formData.ci = null;
-            }
+    document.getElementById('toggleCorreo').addEventListener('change', function() {
+      const correoField = document.getElementById('correo');
+      if (!this.checked) {
+        correoField.value = '';
+      }
+      correoField.disabled = !this.checked;
+    });
 
-            if (document.getElementById('toggleTelefono').checked) {
-                formData.numero_telefono = document.getElementById('numero_telefono').value;
-            } else {
-                formData.numero_telefono = null;
-            }
+    document.getElementById('toggleCi').addEventListener('change', function() {
+      const ciField = document.getElementById('ci');
+      if (!this.checked) {
+        ciField.value = '';
+      }
+      ciField.disabled = !this.checked;
+    });
 
-            if (document.getElementById('toggleDireccion').checked) {
-                formData.direccion = document.getElementById('direccion').value;
-            } else {
-                formData.direccion = null;
-            }
+    document.getElementById('toggleTelefono').addEventListener('change', function() {
+      const telefonoField = document.getElementById('numero_telefono');
+      if (!this.checked) {
+        telefonoField.value = '';
+      }
+      telefonoField.disabled = !this.checked;
+    });
 
-            // Enviar los datos al servidor
-            fetch(`http://localhost:5001/usuarios/${userId}`, {
-                method: 'PUT', // o 'PATCH'
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(formData)
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.error) {
-                    document.getElementById('errorMessage').textContent = data.error;
-                } else {
-                    alert('Datos actualizados correctamente');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                document.getElementById('errorMessage').textContent = 'Hubo un error al actualizar los datos';
-            });
-        });
+    document.getElementById('toggleDireccion').addEventListener('change', function() {
+      const direccionField = document.getElementById('direccion');
+      if (!this.checked) {
+        direccionField.value = '';
+      }
+      direccionField.disabled = !this.checked;
+    });
 
-        // Funcionalidad de los switches
-        document.getElementById('toggleNombre').addEventListener('change', function() {
-            const nombreField = document.getElementById('nombre');
-            if (!this.checked) {
-                nombreField.value = ''; // Limpiar el campo si el switch está deshabilitado
-            }
-            nombreField.disabled = !this.checked; // Deshabilitar el campo si el switch está deshabilitado
-        });
+    document.getElementById('toggleFechaExpiracion').addEventListener('change', function() {
+  const fechaField = document.getElementById('fecha_expiracion');
+  if (!this.checked) {
+    fechaField.value = '';
+  }
+  fechaField.disabled = !this.checked;
+});
 
-        document.getElementById('toggleCorreo').addEventListener('change', function() {
-            const correoField = document.getElementById('correo');
-            if (!this.checked) {
-                correoField.value = '';
-            }
-            correoField.disabled = !this.checked;
-        });
-
-        document.getElementById('toggleCi').addEventListener('change', function() {
-            const ciField = document.getElementById('ci');
-            if (!this.checked) {
-                ciField.value = '';
-            }
-            ciField.disabled = !this.checked;
-        });
-
-        document.getElementById('toggleTelefono').addEventListener('change', function() {
-            const telefonoField = document.getElementById('numero_telefono');
-            if (!this.checked) {
-                telefonoField.value = '';
-            }
-            telefonoField.disabled = !this.checked;
-        });
-
-        document.getElementById('toggleDireccion').addEventListener('change', function() {
-            const direccionField = document.getElementById('direccion');
-            if (!this.checked) {
-                direccionField.value = '';
-            }
-            direccionField.disabled = !this.checked;
-        });
-    </script>
+  </script>
 </body>
-</html>
+</html> 
