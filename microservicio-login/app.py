@@ -7,7 +7,7 @@ from functools import wraps
 from flask import Flask, request, jsonify, render_template
 import psycopg2
 from psycopg2.extras import RealDictCursor
-import requests
+
 from config import SECRET_KEY,SMTP_PORT,SMTP_SERVER,EMAIL_ADDRESS,EMAIL_PASSWORD, DBCONNECT, DBCONNECTAUDIT
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import padding, hashes
