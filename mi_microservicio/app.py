@@ -48,7 +48,6 @@ def generar_clave(user_id):
     print(f"Clave generada para user_id={user_id}: {clave.hex()}")
     return clave
 
-SECRET_KEY = '7Gj9@b2M'  # Debe ser la misma que en la primera API
 
 # Decorador para verificar roles
 def requires_role(role):

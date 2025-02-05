@@ -8,7 +8,7 @@ from flask import Flask, request, jsonify, render_template
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import requests
-from config import SECRET_KEY,SMTP_PORT,SMTP_SERVER,EMAIL_ADDRESS,EMAIL_PASSWORD
+from config import SECRET_KEY,SMTP_PORT,SMTP_SERVER,EMAIL_ADDRESS,EMAIL_PASSWORD, DBCONNECT, DBCONNECTAUDIT
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import padding, hashes
 from cryptography.hazmat.backends import default_backend
@@ -23,7 +23,7 @@ app = Flask(__name__)
 def get_db_connection():
     try:
         conn = psycopg2.connect(
-            "postgresql://postgres:npg_H9UzaGen3Zfg@ep-dark-resonance-a2kztjpx-pooler.eu-central-1.aws.neon.tech/secure?sslmode=require"
+            DBCONNECT
         )
         print("Conexión a la base de datos establecida correctamente.")
         return conn
@@ -35,7 +35,7 @@ def get_db_connection():
 def get_audit_db_connection():
     try:
         conn = psycopg2.connect(
-            "postgresql://postgres:npg_H9UzaGen3Zfg@ep-dark-resonance-a2kztjpx-pooler.eu-central-1.aws.neon.tech/auditoria?sslmode=require"
+            DBCONNECTAUDIT
         )
         print("Conexión a la base de datos establecida correctamente.")
         return conn
